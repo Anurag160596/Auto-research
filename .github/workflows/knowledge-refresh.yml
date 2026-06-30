@@ -1,0 +1,75 @@
+name: Knowledge base — 72h refresh
+
+# Auto-updates the Karpathy-style LLM Wiki in knowledge/.
+# Runs a stdlib-only Python script every 72 hours that uses the FREE Google Gemini API
+# (with Google Search grounding) to verify seeded sources and integrate newer figures
+# (see knowledge/CLAUDE.md §4), then opens a pull request with whatever changed so the
+# edits are reviewed before merge.
+#
+# ONE-TIME SETUP (repo admin) — no paid key, no GitHub App needed:
+#   1. Get a free Gemini key:  https://aistudio.google.com/apikey
+#   2. Add repo secret  GEMINI_API_KEY  (Settings → Secrets and variables → Actions)
+#   3. Settings → Actions → General → Workflow permissions:
+#      enable "Allow GitHub Actions to create and approve pull requests".
+#
+# NOTE: scheduled workflows only fire from the repository's DEFAULT branch, so this is
+# active on main now. Use "Run workflow" to trigger a pass on demand.
+
+on:
+  schedule:
+    # Every 72 hours: 06:23 UTC on every 3rd day-of-month (3,6,9,…,30), off the :00 mark
+    # on purpose. Cron can't express a true rolling 72h interval across month boundaries,
+    # so the gap resets at the 1st — the conventional "every 3 days".
+    - cron: "23 6 */3 * *"
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "Lint scope label (recorded in the log line)"
+        required: false
+        default: "all"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: knowledge-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Gemini source-verification pass
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SCOPE: ${{ github.event.inputs.scope || 'all' }}
+        run: python knowledge/scripts/refresh.py
+
+      - name: Open pull request with changes
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: auto/knowledge-refresh
+          base: main
+          commit-message: "knowledge: 72h auto-refresh (Gemini source verification)"
+          title: "Knowledge base — auto-refresh"
+          body: |
+            Automated maintenance pass over the LLM Wiki (`knowledge/`).
+
+            A stdlib Python script used the **free Gemini API with Google Search grounding**
+            to verify seeded sources: filling primary-source URLs, flipping
+            `seeded → verified` (or `contested`), and propagating status into the benchmark
+            ledger. See `knowledge/log.md` for the `LINT` summary line.
+
+            Review the diff before merging — these are AI-assisted research edits.
+          labels: knowledge-base, automated
+          delete-branch: true
