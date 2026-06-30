@@ -31,4 +31,6 @@ and one new caveat `seeded` (Gartner 40%-cancellation). See [log.md](./log.md).
 - [Source registry](./sources/registry.md) — provenance for every cited figure.
 
 ## Activity
+- [DIGEST.md](./DIGEST.md) — latest auto-research pass: what's new / changed / to re-check.
+- [sources/inbox.md](./sources/inbox.md) — discovery capture (new candidates awaiting compilation).
 - [log.md](./log.md) — append-only record of ingests, queries, and lint passes.

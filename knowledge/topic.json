@@ -1,0 +1,13 @@
+{
+  "name": "Contact-center AI value research",
+  "description": "The research and evidence base behind the ABL / Kore.ai contact-center value model.",
+  "sanctioned_sources": ["Gartner", "McKinsey", "Forrester"],
+  "freshness_days": 180,
+  "discovery_queries": [
+    "Gartner contact center agentic AI automation rate cost per resolution latest",
+    "McKinsey generative AI customer care productivity contact deflection latest",
+    "Forrester Total Economic Impact conversational AI customer service ROI payback latest",
+    "Gartner customer service AI labor cost reduction self-service resolution latest"
+  ],
+  "_notes": "To research a different subject with the same engine, fork this file: set name/description, the sanctioned source list the verifier will trust, the freshness window (days) before a claim is marked stale, and the discovery queries the engine runs each cycle to find new sources."
+}

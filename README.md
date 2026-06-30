@@ -13,29 +13,48 @@ cost divergence).
 ```
 knowledge/
   CLAUDE.md          # the schema — page types + ingest/query/lint operations
+  topic.json         # topic config — retarget the engine to any subject
   index.md           # content catalog
   log.md             # append-only activity log
+  DIGEST.md          # latest auto-generated "what's new / changed / re-check"
   sources/registry.md# provenance for every cited figure
+  sources/inbox.md   # discovery capture — new candidates awaiting compilation
   wiki/              # entity / concept / comparison / synthesis pages + benchmarks.md
+  scripts/refresh.py # the auto-research engine
 .github/workflows/
-  knowledge-refresh.yml  # 72h auto-refresh (free Gemini + Google Search grounding)
+  knowledge-refresh.yml  # 72h auto-research pass (free Gemini + Google Search grounding)
 ```
 
 Read [`knowledge/CLAUDE.md`](knowledge/CLAUDE.md) first — it defines the conventions and the
-three operations (ingest / query / lint).
+operations (ingest / query / lint).
 
-## Auto-refresh (free)
+## Auto-research engine (free)
 
-Every 72 hours, a GitHub Action runs `knowledge/scripts/refresh.py`, which uses the **free
-Google Gemini API with Google Search grounding** to verify seeded sources, fill primary-source
-URLs, flip `seeded → verified` (or `contested`), and open a review PR.
+Every 72 hours, a GitHub Action runs `knowledge/scripts/refresh.py` (a stdlib-only engine
+driven by `knowledge/topic.json`) using the **free Google Gemini API with Google Search
+grounding**. Each pass runs four beats:
+
+1. **Lint** — flags stale claims (past the freshness window), orphan pages, and gaps.
+2. **Verify** — finds the primary URL for each seeded source and confirms the figure.
+3. **Cross-check** — a second, *adversarial* pass tries to refute it; a claim is `verified`
+   only if confirmed **and** not refuted, otherwise `contested`.
+4. **Discover** — searches for *new* sanctioned-source publications and files candidates to
+   `knowledge/sources/inbox.md`, so the wiki **compounds** instead of plateauing.
+
+It writes `knowledge/DIGEST.md` (what's new / changed / re-check) and opens a review PR. Run
+locally with `DRY_RUN=1 python knowledge/scripts/refresh.py` for a no-API lint+digest pass.
+
+### Research any topic
+The engine is generic. Fork `knowledge/topic.json` — set `name`, `sanctioned_sources`,
+`freshness_days`, and `discovery_queries` — and reseed `knowledge/sources/registry.md` to
+point the same machinery at any subject.
 
 ### One-time setup
 1. Free Gemini key: <https://aistudio.google.com/apikey>
 2. Add repo secret **`GEMINI_API_KEY`** (Settings → Secrets and variables → Actions).
 3. Settings → Actions → General → enable **"Allow GitHub Actions to create and approve pull requests."**
 
-Then trigger it from the **Actions** tab → *Knowledge base — 72h refresh* → **Run workflow**.
+Then trigger it from the **Actions** tab → *Auto-research — 72h knowledge pass* → **Run workflow**.
 
 ## Provenance
 Seeded from the value-modeling project's research notes; verified in a 2026-06-25 pass

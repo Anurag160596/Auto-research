@@ -92,15 +92,25 @@ Rules:
    "explorations become permanent knowledge." Append a `QUERY` line to `log.md`.
 
 ### Lint (periodic health check) — this is the auto-update beat
-Run on a schedule. Each pass:
-1. **Contradictions** — claims that disagree across pages → reconcile or mark `contested`.
-2. **Stale claims** — anything older than the freshness window (default **180 days**) or
-   superseded by a newer report → mark `status: stale` and queue a refresh search.
-3. **Orphans** — pages with no inbound links → link them in or retire them.
-4. **Gaps** — concepts referenced but with no page; benchmarks with `verification: pending`.
-5. **Refresh** — for each stale/pending item, run a web search for newer figures and
-   **ingest** what's found.
-6. Append a `LINT` line to `log.md` summarizing what changed.
+Run on a schedule. The automated engine (`scripts/refresh.py`, driven by `topic.json`) runs
+four beats each pass:
+1. **Lint** (deterministic) — **stale** claims past the freshness window (default **180
+   days**); **orphan** pages with no inbound links; **gaps** (seeded/pending sources,
+   unverified benchmark rows). `superseded`/`contested` are intentional end-states, not gaps.
+2. **Verify** — for each seeded source, find the primary URL and confirm the figure.
+3. **Cross-check** (adversarial) — a second pass tries to *refute* each confirmed claim;
+   `verified` only if confirmed **and** not refuted, else `contested`.
+4. **Discover** — run `topic.json`'s discovery queries for **new** sanctioned-source
+   publications, dedupe against what's known, and file candidates to `sources/inbox.md` for
+   the next agent ingest pass to compile into pages. This is what makes the wiki compound.
+
+Each pass writes a human-readable [`DIGEST.md`](./DIGEST.md) (what's new / changed /
+re-check) and appends a `LINT` line to `log.md`. Run `DRY_RUN=1` for lint+digest only (no
+API) — used as a CI smoke test.
+
+> **Retargeting to a new topic:** the engine is generic. Fork `topic.json` (name,
+> `sanctioned_sources`, `freshness_days`, `discovery_queries`) and reseed `sources/registry.md`
+> to research any subject with the same machinery.
 
 ---
 
@@ -121,12 +131,12 @@ Consistent leading prefixes (`INGEST` / `QUERY` / `LINT`) keep the log machine-p
 `knowledge/scripts/refresh.py`.
 **Cadence:** every 72 hours (every 3rd day-of-month, 06:23 UTC) + manual `Run workflow`.
 
-Each run executes a stdlib-only Python script that uses the **free Google Gemini API with
-Google Search grounding** to verify seeded sources — filling primary-source URLs, flipping
-`seeded → verified` (or `contested`), and propagating status into
-[`benchmarks.md`](./wiki/benchmarks.md). It appends a `LINT` line to [`log.md`](./log.md) and
-opens a pull request (`auto/knowledge-refresh`) so AI-assisted edits are reviewed before they
-land on `main`.
+Each run executes the four-beat engine in §4 (lint → verify → cross-check → discover) using
+the **free Google Gemini API with Google Search grounding**, driven by [`topic.json`](./topic.json).
+It updates [`registry.md`](./sources/registry.md) and [`benchmarks.md`](./wiki/benchmarks.md),
+files new candidates to [`sources/inbox.md`](./sources/inbox.md), writes [`DIGEST.md`](./DIGEST.md),
+appends a `LINT` line to [`log.md`](./log.md), and opens a review PR (`auto/knowledge-refresh`)
+so AI-assisted edits are reviewed before they land on `main`.
 
 One-time setup (repo admin) — no paid key, no GitHub App required:
 1. Get a free Gemini key: <https://aistudio.google.com/apikey>
@@ -134,7 +144,7 @@ One-time setup (repo admin) — no paid key, no GitHub App required:
 3. Settings → Actions → General → enable "Allow GitHub Actions to create and approve pull
    requests."
 
-> Deeper passes (page-level `status` upkeep, orphan/contradiction reconciliation, ingesting
-> brand-new sources) still benefit from a full LLM agent — any Claude session pointed at
-> `knowledge/` with this schema as context can do them by hand per §4. The Gemini script
-> covers the recurring source-verification beat for free.
+> The engine handles the recurring beats for free. **Compiling** discovered candidates
+> (`sources/inbox.md`) into well-formed wiki pages, and reconciling subtle contradictions,
+> still benefit from a full LLM agent — any Claude session pointed at `knowledge/` with this
+> schema as context can do that per §4.
